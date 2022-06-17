@@ -70,6 +70,8 @@
 	                    const obj = new THREE.Mesh(geometry, material);
 	                    obj.position.copy(new THREE.Vector3(object.pos.x, object.pos.y, object.pos.z))
 	                    
+	                    obj.userData.gameObject = true;
+	                    
 	                    this.add(obj);
 	                    
 	                    console.log("added object");
@@ -109,60 +111,60 @@
         			
         			this.moveControl = new TransformControls(this.editorCamera, this.renderer.domElement);
         			
-        			window.addEventListener('keydown', function (event)
+        			window.addEventListener('keydown', (event) =>
         			{
         				switch (event.keyCode)
         				{
         					case 81: // Q
-        						moveControl.setSpace( moveControl.space === 'local' ? 'world' : 'local' );
+        						this.moveControl.setSpace( this.moveControl.space === 'local' ? 'world' : 'local' );
         						break;
         
         					case 16: // Shift
-        						moveControl.setTranslationSnap( 100 );
-        						moveControl.setRotationSnap( THREE.MathUtils.degToRad( 15 ) );
-        						moveControl.setScaleSnap( 0.25 );
+        						this.moveControl.setTranslationSnap( 100 );
+        						this.moveControl.setRotationSnap( THREE.MathUtils.degToRad( 15 ) );
+        						this.moveControl.setScaleSnap( 0.25 );
         						break;
         
         					case 87: // W
-        						moveControl.setMode( 'translate' );
+        						this.moveControl.setMode( 'translate' );
         						break;
         
         					case 69: // E
-        						moveControl.setMode( 'rotate' );
+        						this.moveControl.setMode( 'rotate' );
         						break;
         
         					case 82: // R
-        						moveControl.setMode( 'scale' );
+        						this.moveControl.setMode( 'scale' );
         						break;
         
         					case 187:
         					case 107: // +, =, num+
-        						moveControl.setSize( moveControl.size + 0.1 );
+        						this.moveControl.setSize( this.moveControl.size + 0.1 );
         						break;
         
         					case 189:
         					case 109: // -, _, num-
-        						moveControl.setSize( Math.max( moveControl.size - 0.1, 0.1 ) );
+        						this.moveControl.setSize( Math.max( this.moveControl.size - 0.1, 0.1 ) );
         						break;
         
         					case 88: // X
-        						moveControl.showX = ! moveControl.showX;
+        						this.moveControl.showX = ! this.moveControl.showX;
         						break;
         
         					case 89: // Y
-        						moveControl.showY = ! moveControl.showY;
+        						this.moveControl.showY = ! this.moveControl.showY;
         						break;
         
         					case 90: // Z
-        						moveControl.showZ = ! moveControl.showZ;
+        						this.moveControl.showZ = ! this.moveControl.showZ;
         						break;
         
         					case 32: // Spacebar
-        						moveControl.enabled = ! moveControl.enabled;
+        						this.moveControl.enabled = ! this.moveControl.enabled;
         						break;
         
         					case 27: // Esc
-        						moveControl.reset();
+        						this.moveControl.reset();
         						break;
         				}
         			});
@@ -172,9 +174,9 @@
         				switch (event.keyCode)
         				{
         					case 16: // Shift
-        						moveControl.setTranslationSnap( null );
-        						moveControl.setRotationSnap( null );
-        						moveControl.setScaleSnap( null );
+        						this.moveControl.setTranslationSnap(null);
+        						this.moveControl.setRotationSnap(null);
+        						this.moveControl.setScaleSnap(null);
         						break;
         				}
         			});
@@ -204,9 +206,28 @@
 				    
 				    window.addEventListener('mousemove', (event) => 
 				    {
-				        //this.mousePosition = new THREE.Vector2(event.clientX, event.clientY);
-				        this.mousePosition.x = ( event.clientX / window.innerWidth ) * 2 - 1;
-            	        this.mousePosition.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+				        this.mousePosition.x = (event.clientX / window.innerWidth) * 2 - 1;
+            	        this.mousePosition.y = - (event.clientY / window.innerHeight) * 2 + 1;
+				    });
+				    
+				    window.addEventListener('mouseup', (event) =>
+				    {
+				        if (this.orbitControl.enabled)
+				        {
+    				        if (this.INTERSECTED !== this.moveControl.object)
+    				        {
+    				            this.moveControl.detach();
+    				            
+    				            console.log("detach");
+    				            
+    				            if (this.INTERSECTED instanceof THREE.Object3D && 
+    				                this.INTERSECTED.userData.hasOwnProperty("gameObject"))
+    				            {
+    				                this.moveControl.attach(this.INTERSECTED);
+    				                console.log("attach to ", this.INTERSECTED);
+    				            }
+    				        }
+				        }
 				    });
 		        }
 		        
@@ -236,27 +257,27 @@
 		        {
 		            return this.scene.add(object);
 		        }
-		        
+
 		        remove(object)
 		        {
 		            return this.scene.remove(object);
 		        }
-		        
+
 		        selectObject()
 		        {
 		            
 		        }
-		        
+
 		        deselectObject()
 		        {
 		            
 		        }
-		        
+
 		        render()
 		        {
 		            this.raycaster.setFromCamera(this.mousePosition, this.editorCamera);
-                	const intersects = this.raycaster.intersectObjects(this.scene.children, false);
-                	
+                	const intersects = this.raycaster.intersectObjects(this.scene.children, true);
+
                 	if (intersects.length > 0)
                 	{
                 		if (this.INTERSECTED != intersects[0].object)
@@ -266,8 +287,8 @@
                 			    this.INTERSECTED.material.color.setHex(0xffffff);
                 			    this.INTERSECTED = null;
                 			}
-                
-                            if (intersects[0].object.userData.hasOwnProperty("canClick")) // the object is now hovered
+
+                            if (intersects[0].object.userData.hasOwnProperty("gameObject"))
                             {
                 				this.INTERSECTED = intersects[0].object;
                                 this.INTERSECTED.material.color.setHex(0xff0000);
