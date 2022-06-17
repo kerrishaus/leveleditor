@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>Level Editor</title>
+		<style>
+			body
+			{
+			    margin: 0;
+			    background-color: black;
+			}
+		</style>
+		
+		<script src="https://kerrishaus.com/assets/scripts/jquery-3.6.0.min.js"></script>
+		<script src="https://portal.kerrishaus.com/assets/javascript/messages.js"></script>
+		<link rel='stylesheet' href='https://portal.kerrishaus.com/assets/styles/messages.css'>
+	</head>
+	
+	<body>
+		<script type='module'>
+		    import * as THREE from "https://kerrishaus.com/assets/threejs/build/three.module.js";
+		    import { CSS2DObject, CSS2DRenderer } from "https://kerrishaus.com/assets/threejs/examples/jsm/renderers/CSS2DRenderer.js";
+		    import { TransformControls } from 'https://kerrishaus.com/assets/threejs/examples/jsm/controls/TransformControls.js';
+		    import { OrbitControls } from 'https://kerrishaus.com/assets/threejs/examples/jsm/controls/OrbitControls.js';
+		    
+		    const demoLevel = `{"name":"demo level","author":"kennyrkun","description":"a demo level of a hallway","version":1,"objects":[{"type":"box","color":"0xffffff","pos":{"x":"0","y":"0","z":"0"},"scale":{"x":"3","y":"3","z":"0.1"}},{"type":"box","color":"0x00ff00","pos":{"x":"0","y":"0","z":"0"},"scale":{"x":"3","y":"0.1","z":"3"}}]}`;
+		    
+		    class Level extends THREE.Group
+		    {
+		        constructor(levelString = null)
+		        {
+		            super();
+		            
+		            this.name = "";
+		            this.description = "";
+		            this.author = "";
+		            this.version = 0;
+		            
+		            if (levelString !== null)
+		                this.load(levelString);
+		        }
+		        
+		        load(jsonString)
+		        {
+		            const level = JSON.parse(jsonString);
+		            
+		            if (level.version !== 1)
+		            {
+		                console.error("Failed to load level: invalid version. (" + prefab.version + ")");
+		                return;
+		            }
+		            
+		            this.name        = level.name;
+		            this.description = level.description;
+		            this.author      = level.author;
+		            this.version     = level.version;
+		            
+		            console.log(level.objects);
+		            
+		            for (const object of level.objects)
+		            {
+		                let geometry = null;
+		                
+		                if (object.type == "box")
+		                    geometry = new THREE.BoxGeometry(object.scale.x, object.scale.y, object.scale.z);
+		                    
+	                    let material = new THREE.MeshBasicMaterial({color: 0xffffff});
+	                    material.color.setHex(object.color);
+	                    
+	                    const obj = new THREE.Mesh(geometry, material);
+	                    obj.position.copy(new THREE.Vector3(object.pos.x, object.pos.y, object.pos.z))
+	                    
+	                    this.add(obj);
+	                    
+	                    console.log("added object");
+		            }
+		            
+		            console.log(`Level "${this.name}" by ${this.author} loaded. Using ${this.children.length} objects.`);
+		        }
+		        
+		        save()
+		        {
+		            
+		        }
+		    };
+		    
+		    class Editor
+		    {
+		        constructor()
+		        {
+		            this.level = null;
+		            this.selectedObject = null;
+		            
+        			this.scene = new THREE.Scene();
+
+        			this.renderer = new THREE.WebGLRenderer();
+        			this.renderer.setSize(window.innerWidth, window.innerHeight);
+        			document.body.appendChild(this.renderer.domElement);
+        			
+        			this.htmlRenderer = new CSS2DRenderer();
+        			this.htmlRenderer.setSize(window.innerWidth, window.innerHeight);
+        			this.htmlRenderer.domElement.style.position = 'absolute';
+        			this.htmlRenderer.domElement.style.top = '0px';
+        			document.body.appendChild(this.htmlRenderer.domElement).style.pointerEvents = "none";
+        			
+        			this.editorCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 1000);
+        			this.editorCamera.position.x = 10;
+        			this.scene.add(this.editorCamera);
+        			
+        			this.moveControl = new TransformControls(this.editorCamera, this.renderer.domElement);
+        			
+        			window.addEventListener('keydown', function (event)
+        			{
+        				switch (event.keyCode)
+        				{
+        					case 81: // Q
+        						moveControl.setSpace( moveControl.space === 'local' ? 'world' : 'local' );
+        						break;
+        
+        					case 16: // Shift
+        						moveControl.setTranslationSnap( 100 );
+        						moveControl.setRotationSnap( THREE.MathUtils.degToRad( 15 ) );
+        						moveControl.setScaleSnap( 0.25 );
+        						break;
+        
+        					case 87: // W
+        						moveControl.setMode( 'translate' );
+        						break;
+        
+        					case 69: // E
+        						moveControl.setMode( 'rotate' );
+        						break;
+        
+        					case 82: // R
+        						moveControl.setMode( 'scale' );
+        						break;
+        
+        					case 187:
+        					case 107: // +, =, num+
+        						moveControl.setSize( moveControl.size + 0.1 );
+        						break;
+        
+        					case 189:
+        					case 109: // -, _, num-
+        						moveControl.setSize( Math.max( moveControl.size - 0.1, 0.1 ) );
+        						break;
+        
+        					case 88: // X
+        						moveControl.showX = ! moveControl.showX;
+        						break;
+        
+        					case 89: // Y
+        						moveControl.showY = ! moveControl.showY;
+        						break;
+        
+        					case 90: // Z
+        						moveControl.showZ = ! moveControl.showZ;
+        						break;
+        
+        					case 32: // Spacebar
+        						moveControl.enabled = ! moveControl.enabled;
+        						break;
+        
+        					case 27: // Esc
+        						moveControl.reset();
+        						break;
+        				}
+        			});
+        			
+        			window.addEventListener('keyup', function(event)
+        			{
+        				switch (event.keyCode)
+        				{
+        					case 16: // Shift
+        						moveControl.setTranslationSnap( null );
+        						moveControl.setRotationSnap( null );
+        						moveControl.setScaleSnap( null );
+        						break;
+        				}
+        			});
+        			
+        			this.scene.add(this.moveControl);
+        			
+					this.orbitControl = new OrbitControls(this.editorCamera, this.renderer.domElement);
+    				this.orbitControl.update();
+    				
+    				this.moveControl.addEventListener('dragging-changed', (event) => {
+					    this.orbitControl.enabled = ! event.value;
+				    });
+				    
+				    window.addEventListener('resize', (event) =>
+				    {
+	       				const aspect = window.innerWidth / window.innerHeight;
+
+        				this.editorCamera.aspect = aspect;
+        				this.editorCamera.updateProjectionMatrix();
+        
+        				this.renderer.setSize( window.innerWidth, window.innerHeight );
+				    });
+				    
+				    this.raycaster = new THREE.Raycaster();
+				    this.mousePosition = new THREE.Vector2();
+				    this.INTERSECTED = null;
+				    
+				    window.addEventListener('mousemove', (event) => 
+				    {
+				        //this.mousePosition = new THREE.Vector2(event.clientX, event.clientY);
+				        this.mousePosition.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+            	        this.mousePosition.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+				    });
+		        }
+		        
+		        loadLevel()
+		        {
+		            this.level = new Level(demoLevel);
+		            this.add(this.level);
+		            
+		            console.log(this.level);
+		            
+		            this.moveControl.attach(this.level);
+		            
+		            console.log("Editor: level loaded. Total objects: " + this.scene.children.length);
+		        }
+		        
+		        saveLevel()
+		        {
+		            
+		        }
+		        
+		        newLevel()
+		        {
+		            
+		        }
+		        
+		        add(object)
+		        {
+		            return this.scene.add(object);
+		        }
+		        
+		        remove(object)
+		        {
+		            return this.scene.remove(object);
+		        }
+		        
+		        selectObject()
+		        {
+		            
+		        }
+		        
+		        deselectObject()
+		        {
+		            
+		        }
+		        
+		        render()
+		        {
+		            this.raycaster.setFromCamera(this.mousePosition, this.editorCamera);
+                	const intersects = this.raycaster.intersectObjects(this.scene.children, false);
+                	
+                	if (intersects.length > 0)
+                	{
+                		if (this.INTERSECTED != intersects[0].object)
+                		{
+                			if (this.INTERSECTED) // the object is no longer hovered, and we're hovering over another object
+                			{
+                			    this.INTERSECTED.material.color.setHex(0xffffff);
+                			    this.INTERSECTED = null;
+                			}
+                
+                            if (intersects[0].object.userData.hasOwnProperty("canClick")) // the object is now hovered
+                            {
+                				this.INTERSECTED = intersects[0].object;
+                                this.INTERSECTED.material.color.setHex(0xff0000);
+                            }
+                		}
+                	}
+                	else if (this.INTERSECTED !== null)// the object is no longer hovered, and no object is hovered
+                	{
+                	    this.INTERSECTED.material.color.setHex(0xffffff);
+                		this.INTERSECTED = null;
+                	}
+		            
+		            editor.renderer.render(editor.scene, editor.editorCamera);
+				    editor.htmlRenderer.render(editor.scene, editor.editorCamera);
+		        }
+		    };
+		    
+		    const editor = new Editor();
+		    
+		    editor.loadLevel();
+		    
+			function animate()
+			{
+				requestAnimationFrame(animate);
+
+                editor.render();
+			};
+
+			animate();
+		</script>
+	</body>
+</html>
